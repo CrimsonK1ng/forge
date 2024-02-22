@@ -48,10 +48,10 @@ const (
 // BasicStep is a type that represents a basic execution step.
 type BasicStep struct {
 	actionDefaults `yaml:",inline"`
-	Executor       string                  `yaml:"executor,omitempty"`
-	Inline         string                  `yaml:"inline,flow"`
-	Environment    map[string]string       `yaml:"env,omitempty"`
-	Outputs        map[string]outputs.Spec `yaml:"outputs,omitempty"`
+	Executor       string            `yaml:"executor,omitempty"`
+	Inline         string            `yaml:"inline,flow"`
+	Environment    map[string]string `yaml:"env,omitempty"`
+	Outputs        []outputs.Spec    `yaml:"outputs,omitempty"`
 }
 
 // NewBasicStep creates a new BasicStep instance with an initialized Act struct.
@@ -129,6 +129,7 @@ func (b *BasicStep) executeBashStdin(ptx context.Context, execCtx TTPExecutionCo
 
 	// expand variables in environment
 	envAsList := append(FetchEnv(b.Environment), os.Environ()...)
+	envAsList = append(envAsList, execCtx.fetchForgeEnv()...)
 	expandedEnvAsList, err := execCtx.ExpandVariables(envAsList)
 	if err != nil {
 		return nil, err

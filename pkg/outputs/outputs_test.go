@@ -38,24 +38,45 @@ func TestJSONFilter(t *testing.T) {
 		{
 			name:  "Simple Valid Path",
 			input: `{"foo":{"bar":"baz"}}`,
-			spec: `filters:
-  - json_path: foo.bar`,
+			spec: `name: simple
+filters:
+  - json: foo.bar`,
 			result:         "baz",
 			wantApplyError: false,
 		},
 		{
 			name:  "Valid Path But Not Found",
 			input: `{"foo":{"bar":"baz"}}`,
-			spec: `filters:
-  - json_path: a.b`,
+			spec: `name: valid
+filters:
+  - json: a.b`,
 			wantApplyError: true,
 		},
 		{
 			name:  "Invalid Path",
 			input: `{"foo":{"bar":"baz"}}`,
-			spec: `filters:
-  - json_path: a.....b`,
+			spec: `name: invalid
+filters:
+  - json: a.....b`,
 			wantApplyError: true,
+		},
+		{
+			name:  "Simple Valid VarName",
+			input: `{"foo":{"bar":"baz"}}`,
+			spec: `name: test
+filters:
+  - json: foo.bar`,
+			result:         "baz",
+			wantApplyError: false,
+		},
+		{
+			name:  "Simple Invalid VarName",
+			input: `{"foo":{"bar":"baz"}}`,
+			spec: `name: $badvar
+filters:
+  - json: foo.bar`,
+			result:         "baz",
+			wantApplyError: false,
 		},
 	}
 
@@ -78,15 +99,25 @@ func TestJSONFilter(t *testing.T) {
 
 func TestParse(t *testing.T) {
 	input := `{"foo":{"bar":"baz"},"a":"b"}`
-	specs := map[string]Spec{
-		"first": {
+	specs := []Spec{
+		{
+			Name: "first",
 			Filters: []Filter{
 				&JSONFilter{
 					Path: "foo.bar",
 				},
 			},
 		},
-		"second": {
+		{
+			Name: "second",
+			Filters: []Filter{
+				&JSONFilter{
+					Path: "a",
+				},
+			},
+		},
+		{
+			Name: "third",
 			Filters: []Filter{
 				&JSONFilter{
 					Path: "a",
@@ -97,7 +128,7 @@ func TestParse(t *testing.T) {
 
 	results, err := Parse(specs, input)
 	require.NoError(t, err)
-	require.Equal(t, 2, len(results), "should have two outputs")
+	require.Equal(t, 3, len(results), "should have three outputs")
 	assert.Equal(t, "baz", results["first"], "first output should be correct")
 	assert.Equal(t, "b", results["second"], "second output should be correct")
 }

@@ -22,6 +22,7 @@ package outputs
 import (
 	"errors"
 	"fmt"
+	"regexp"
 
 	"github.com/tidwall/gjson"
 	"gopkg.in/yaml.v3"
@@ -39,21 +40,24 @@ import (
 //
 // map[string]string: the output keys and values
 // error: an error if there is a problem
-func Parse(specs map[string]Spec, inStr string) (map[string]string, error) {
+func Parse(specs []Spec, inStr string) (map[string]string, error) {
 	outputs := make(map[string]string)
-	for name, spec := range specs {
+	for _, spec := range specs {
 		outStr, err := spec.Apply(inStr)
 		if err != nil {
 			return nil, err
 		}
-		outputs[name] = outStr
+		outputs[spec.Name] = outStr
 	}
 	return outputs, nil
 }
 
 // Spec defines an output value for which
 // a given step's stdout should be scanned
+// will gather the output into a variable to be passed
+// in as an ENV variable with prefix FORGE_$name
 type Spec struct {
+	Name    string   `yaml:"name,omitempty"`
 	Filters []Filter `yaml:"filters"`
 }
 
@@ -80,18 +84,29 @@ func (s *Spec) Apply(inStr string) (string, error) {
 // JSONFilter will parse a JSON string
 // and extract the value at the provided path (like jq)
 type JSONFilter struct {
-	Path string `yaml:"json_path"`
+	Path string `yaml:"json"`
 }
 
 // UnmarshalYAML is used to load specs from yaml files
 func (s *Spec) UnmarshalYAML(node *yaml.Node) error {
 	type SpecTmp struct {
+		Name        string      `yaml:"name,omitempty"`
 		FilterNodes []yaml.Node `yaml:"filters"`
 	}
 
 	var tmp SpecTmp
 	if err := node.Decode(&tmp); err != nil {
 		return err
+	}
+
+	regAlpha, _ := regexp.Compile("^[A-Za-z0-9][A-Za-z0-9_-]*$")
+	switch {
+	case tmp.Name != "" && regAlpha.MatchString(tmp.Name):
+		s.Name = tmp.Name
+	case tmp.Name == "":
+		s.Name = "NULL"
+	case regAlpha.MatchString(tmp.Name):
+		return errors.New("invalid name for output variable. valid regex (^[A-Za-z0-9][A-Za-z0-9_-]*$)")
 	}
 
 	var filters []Filter

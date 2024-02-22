@@ -142,3 +142,15 @@ func (c TTPExecutionContext) processMatch(match string) (string, error) {
 	}
 	return "", fmt.Errorf("invalid variable prefix: %v", prefix)
 }
+
+func (c TTPExecutionContext) fetchForgeEnv() (env []string) {
+	if c.StepResults == nil {
+		return
+	}
+	for _, output := range c.StepResults.ByName {
+		for varname, varout := range output.Outputs {
+			env = append(env, fmt.Sprintf("FORGE_%s=%s", varname, varout))
+		}
+	}
+	return
+}

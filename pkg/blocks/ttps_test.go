@@ -262,9 +262,9 @@ steps:
   - name: step1
     inline: echo {\"foo\":{\"bar\":\"baz\"}}
     outputs:
-      first:
+      - name: first
         filters:
-        - json_path: foo.bar
+        - json: foo.bar
   - name: step2
     inline: echo "first output is baz"
   - name: step3
@@ -403,6 +403,65 @@ mitre:
 			} else {
 				assert.NoError(t, err)
 				assert.NotNil(t, ttp.MitreAttackMapping.Tactics)
+			}
+		})
+	}
+}
+
+func TestEnvVarOutputs(t *testing.T) {
+	testCases := []struct {
+		name              string
+		content           string
+		expectedByNameOut map[string]string
+		wantError         bool
+	}{
+		{
+			name: "Variable Expansion Args And Step Results",
+			content: `name: test_variable_expansion
+description: tests args + step result variable expansion functionality
+args:
+- name: arg1
+steps:
+  - name: step1
+    inline: echo {\"foo\":{\"bar\":\"baz\"}}
+    outputs:
+      - name: test
+        filters:
+        - json: foo.bar
+  - name: step2
+    inline: echo "first output is baz"
+  - name: step3
+    inline: echo "arg value is $FORGE_test"`,
+			expectedByNameOut: map[string]string{
+				"step3": "arg value is baz\n",
+			},
+			wantError: false,
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			// Render the templated TTP first
+			ttp, err := RenderTemplatedTTP(tc.content, &TTPExecutionConfig{})
+			if err != nil {
+				t.Fatalf("failed to render and unmarshal templated TTP: %v", err)
+				return
+			}
+
+			// validate the TTP
+			err = ttp.Validate(TTPExecutionContext{})
+			require.NoError(t, err)
+
+			// run it
+			stepResults, err := ttp.Execute(&TTPExecutionContext{})
+			if tc.wantError {
+				require.Error(t, err)
+				return
+			}
+			require.NoError(t, err)
+
+			for name, output := range tc.expectedByNameOut {
+				require.Equal(t, output, stepResults.ByName[name].Stdout)
 			}
 		})
 	}

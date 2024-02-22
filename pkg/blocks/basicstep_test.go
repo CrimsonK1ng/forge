@@ -80,9 +80,38 @@ func TestBasicStepExecuteWithOutput(t *testing.T) {
 	content := `name: test_basic_step
 inline: echo {\"foo\":{\"bar\":\"baz\"}}
 outputs:
-  first:
+  - name: first
     filters:
-    - json_path: foo.bar`
+    - json: foo.bar`
+	var s BasicStep
+	execCtx := TTPExecutionContext{
+		Cfg: TTPExecutionConfig{
+			Args: map[string]any{
+				"myarg": "baz",
+			},
+		},
+	}
+	err := yaml.Unmarshal([]byte(content), &s)
+	require.NoError(t, err)
+	err = s.Validate(execCtx)
+	require.NoError(t, err)
+
+	// execute and check result
+	result, err := s.Execute(execCtx)
+	require.NoError(t, err)
+	require.Equal(t, 1, len(result.Outputs))
+	assert.Equal(t, "baz", result.Outputs["first"], "first output should be correct")
+}
+
+func TestBasicStepExecuteWithOutputVar(t *testing.T) {
+
+	// prepare step
+	content := `name: test_basic_step
+inline: echo {\"foo\":{\"bar\":\"baz\"}}
+outputs:
+  - name: first
+    filters:
+    - json: foo.bar`
 	var s BasicStep
 	execCtx := TTPExecutionContext{
 		Cfg: TTPExecutionConfig{
